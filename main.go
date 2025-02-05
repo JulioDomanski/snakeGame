@@ -1,50 +1,38 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text"
+	"golang.org/x/image/font/basicfont"
 )
 
 const (
-	screenWidth  = 1280
-	screenHeight = 720
-	gridSize     = 5
+	screenWidth  = 680
+	screenHeight = 340
+	gridSize     = 2
 )
-
-type Snake struct {
-	Body []Point
-	DirX int
-	DirY int
-}
-
-func (s *Snake) Grow() {
-	head := s.Body[0]
-	newHead := Point{head.X + s.DirX*gridSize, head.Y + s.DirY*gridSize}
-	s.Body = append([]Point{newHead}, s.Body...)
-}
-
-func (s *Snake) Move() {
-
-	head := s.Body[0]
-	newHead := Point{head.X + s.DirX*gridSize, head.Y + s.DirY*gridSize}
-
-	s.Body = append([]Point{newHead}, s.Body[:len(s.Body)-1]...)
-
-}
-
-type Point struct {
-	X, Y int
-}
 
 type Game struct {
 	Snake *Snake
 	Apple *Apple
+	Point int
 }
 
 func (g *Game) Update() error {
+
+	if g.Snake.Body[0].X == 680 ||
+		g.Snake.Body[0].X == 0 ||
+		g.Snake.Body[0].Y == 0 ||
+		g.Snake.Body[0].Y == 340 {
+		fmt.Println("cabo")
+		return errors.New("game ended by player")
+	}
+
 	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 		g.Snake.DirX, g.Snake.DirY = 0, -1
 	}
@@ -60,25 +48,34 @@ func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
 		g.Snake.DirX, g.Snake.DirY = 1, 0
 	}
-	fmt.Println(g.Snake.Body[0].X, g.Snake.Body[0].Y)
-	fmt.Println(g.Apple.X, g.Apple.Y)
-	if g.Snake.Body[0].X >= g.Apple.X && g.Snake.Body[0].X < (g.Apple.X+11) &&
-		g.Snake.Body[0].Y >= g.Apple.Y && g.Snake.Body[0].Y < (g.Apple.Y+11) {
+	if g.Snake.Body[0].X < g.Apple.X+5 && g.Snake.Body[0].X+5 > g.Apple.X &&
+		g.Snake.Body[0].Y < g.Apple.Y+5 && g.Snake.Body[0].Y+5 > g.Apple.Y {
 		g.Snake.Grow()
+		g.Apple.SpawnFood(screenWidth, screenHeight)
+		g.Point += 10
 	}
+	fmt.Println(g.Snake.Body[0].X, g.Snake.Body[0].Y)
 	g.Snake.Move()
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 
+	text.Draw(screen, fmt.Sprintf("Score: %d", g.Point), basicfont.Face7x13, 10, 20, color.RGBA{255, 255, 255, 255})
 	snakeColor := color.RGBA{255, 255, 255, 255}
 	appleColor := color.RGBA{255, 0, 0, 250}
 
+	segmentSize := 5
+
 	for _, segment := range g.Snake.Body {
-		screen.Set(segment.X, segment.Y, snakeColor)
+		snakeRect := ebiten.NewImage(segmentSize, segmentSize)
+		snakeRect.Fill(snakeColor)
+
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(segment.X), float64(segment.Y))
+		screen.DrawImage(snakeRect, op)
 	}
-	appleSize := 10
+	appleSize := 5
 	appleRect := ebiten.NewImage(appleSize, appleSize)
 	appleRect.Fill(appleColor)
 
@@ -96,12 +93,13 @@ func main() {
 	ebiten.SetWindowTitle("Snake")
 
 	game := &Game{
+		Point: 0,
 		Snake: &Snake{
 			Body: []Point{{X: screenWidth / 2, Y: screenHeight / 2}},
 		},
 		Apple: &Apple{
-			X: 500,
-			Y: 400,
+			X: 320,
+			Y: 200,
 		},
 	}
 	// Inicia o jogo
